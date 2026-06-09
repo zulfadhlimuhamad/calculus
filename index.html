@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Integration Calculator & Visualizer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fb;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .result-box {
+            margin-top: 10px;
+            padding: 12px;
+            background: #e0f2fe;
+            border-left: 4px solid #0284c7;
+            border-radius: 4px;
+        }
+        .result-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #0369a1;
+            font-weight: bold;
+        }
+        .result-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0c4a6e;
+            margin-top: 5px;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            height: 450px;
+        }
+    </style>
+</head>
+<body>
+
+<h2 style="text-align: center; color: #1e293b; margin-bottom: 20px;">Definite Integration Visualizer</h2>
+
+<div class="container">
+    <div class="controls">
+        <div class="input-group">
+            <label for="equation">Function f(x)</label>
+            <select id="equation">
+                <option value="x2-4x+3">x² - 4x + 3</option>
+                <option value="x2-5x+6">x² - 5x + 6</option>
+                <option value="0.5x2">0.5x²</option>
+                <option value="x">x</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label for="lowerBound">Lower Limit (a)</label>
+            <input type="number" id="lowerBound" value="4" step="0.5">
+        </div>
+        <div class="input-group">
+            <label for="upperBound">Upper Limit (b)</label>
+            <input type="number" id="upperBound" value="5" step="0.5">
+        </div>
+        
+        <div class="result-box">
+            <div class="result-title">Calculated Area</div>
+            <div class="result-value" id="areaResult">0.00</div>
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="graphCanvas" width="550" height="450"></canvas>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Inputs
+    const eqSelect = document.getElementById('equation');
+    const lowerInput = document.getElementById('lowerBound');
+    const upperInput = document.getElementById('upperBound');
+    const areaResult = document.getElementById('areaResult');
+
+    // Graph configuration
+    const scaleX = 40; // pixels per unit
+    const scaleY = 40; 
+    const offsetX = canvas.width / 4; // origin placement
+    const offsetY = canvas.height - 80;
+
+    function getFunction(val) {
+        switch(val) {
+            case 'x2-4x+3': return x => x*x - 4*x + 3;
+            case 'x2-5x+6': return x => x*x - 5*x + 6;
+            case '0.5x2': return x => 0.5*x*x;
+            case 'x': return x => x;
+            default: return x => x*x;
+        }
+    }
+
+    function drawAxes() {
+        ctx.beginPath();
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        
+        // X Axis
+        ctx.moveTo(0, offsetY);
+        ctx.lineTo(canvas.width, offsetY);
+        // Y Axis
+        ctx.moveTo(offsetX, 0);
+        ctx.lineTo(offsetX, canvas.height);
+        ctx.stroke();
+
+        // Draw basic grid numbers
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '10px Arial';
+        for(let i = -2; i <= 10; i++) {
+            ctx.fillText(i, offsetX + i * scaleX - 3, offsetY + 15);
+        }
+    }
+
+    function drawGraph() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawAxes();
+
+        const f = getFunction(eqSelect.value);
+        const a = parseFloat(lowerInput.value);
+        const b = parseFloat(upperInput.value);
+
+        // 1. Draw Shaded Integration Area
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.3)'; // Semi-transparent blue
+        ctx.beginPath();
+        
+        let first = true;
+        for (let xCoord = a; xCoord <= b; xCoord += 0.05) {
+            let yVal = f(xCoord);
+            let canvasX = offsetX + xCoord * scaleX;
+            let canvasY = offsetY - yVal * scaleY;
+            
+            if (first) {
+                ctx.moveTo(canvasX, offsetY);
+                ctx.lineTo(canvasX, canvasY);
+                first = false;
+            } else {
+                ctx.lineTo(canvasX, canvasY);
+            }
+        }
+        ctx.lineTo(offsetX + b * scaleX, offsetY);
+        ctx.closePath();
+        ctx.fill();
+
+        // 2. Draw actual function line
+        ctx.beginPath();
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 3;
+        for (let px = 0; px < canvas.width; px++) {
+            let xVal = (px - offsetX) / scaleX;
+            let yVal = f(xVal);
+            let py = offsetY - yVal * scaleY;
+            
+            if (px === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // 3. Calculate Area (Riemann Sum Approximation)
+        let totalArea = 0;
+        let intervals = 1000;
+        let dx = (b - a) / intervals;
+        for(let i = 0; i < intervals; i++) {
+            let currentX = a + i * dx;
+            totalArea += f(currentX) * dx;
+        }
+        
+        areaResult.innerText = totalArea.toFixed(2) + " units²";
+    }
+
+    // Event listeners to refresh layout instantly
+    eqSelect.addEventListener('change', drawGraph);
+    lowerInput.addEventListener('input', drawGraph);
+    upperInput.addEventListener('input', drawGraph);
+
+    // Initial run
+    drawGraph();
+</script>
+
+</body>
+</html>
